@@ -25,7 +25,7 @@ let lastTick = 0;
 let currentVideo = null;
 let currentSlideDuration = 0;
 let videoDurationKnown = false;
-let hasInteracted = false; // Deteksi klik pertama user untuk bypass autoplay policy
+let hasInteracted = false;
 const blobUrlCache = new Map();
 
 /* ============================================
@@ -135,7 +135,7 @@ function getDurationMs(index) {
 function pauseCurrentVideo() {
   if (currentVideo) {
     if (currentVideo.tagName === 'IFRAME') {
-      // YouTube iframe handling (jika ada)
+      // YouTube iframe handling (pause)
       currentVideo.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
     } else {
       currentVideo.pause();
@@ -144,7 +144,6 @@ function pauseCurrentVideo() {
   }
 }
 
-// Mendeteksi link YouTube agar diproses beda
 function isYouTube(url) {
   return /youtube\.com|youtu\.be/i.test(url);
 }
@@ -188,13 +187,12 @@ function renderStage() {
     } else if (media.type === 'video') {
       const src = srcFor(media);
       
-      // Cek apakah ini link YouTube
       if (isYouTube(src)) {
         const ytId = getYoutubeId(src);
         if (ytId) {
           const iframe = document.createElement('iframe');
-          // autoplay=1, mute=0 (suara nyala)
-          iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
+          // Hilangkan autoplay=1 di sini, agar tidak mutar otomatis saat dirender
+          iframe.src = `https://www.youtube.com/embed/${ytId}?mute=0&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
           iframe.allow = "autoplay; encrypted-media";
           iframe.setAttribute('allowfullscreen', 'true');
           slide.appendChild(iframe);
@@ -202,30 +200,18 @@ function renderStage() {
           showError(slide, 'Format URL YouTube tidak valid');
         }
       } else {
-        // Video HTML5 biasa (file lokal / link mp4)
         slide.appendChild(makeLoader('Memuat video...'));
         const video = document.createElement('video');
         video.src = src;
-        video.autoplay = true;
-        video.muted = false; // Paksa nyalakan suara
+        
+        // --- INI BAGIAN YANG DIPERBAIKI ---
+        video.autoplay = false; // JANGAN autoplay saat dirender
+        video.muted = false;
         video.playsInline = true;
         video.loop = false;
-        video.preload = 'auto';
-        // Sembunyikan tombol kontrol jika tidak diperlukan (opsional)
-        // video.controls = true; 
+        video.preload = 'metadata'; // Hanya ambil info durasi, bukan langsung download
         
-        video.addEventListener('loadeddata', () => {
-          clearLoader(slide);
-          // Jika user sudah pernah klik layar, paksa mainkan dengan suara
-          if (hasInteracted) {
-            video.muted = false;
-            video.play().catch(() => {
-              video.muted = true;
-              video.play().catch(()=>{});
-            });
-          }
-        });
-
+        video.addEventListener('loadeddata', () => clearLoader(slide));
         video.addEventListener('error', () => showError(slide, 'Video tidak dapat dimuat'));
         video.addEventListener('ended', () => {
           if (isPlaying && currentIndex === i && (media.duration == null || media.duration === '')) {
@@ -278,7 +264,7 @@ function showError(slide, msg) {
 }
 
 /* ============================================
-   NAVIGATION
+   NAVIGATION (Hanya putar video jika slide aktif)
    ============================================ */
 function showSlide(index) {
   if (!mediaList.length) return;
@@ -308,7 +294,7 @@ function showSlide(index) {
     if (mediaEl) {
       if (mediaEl.tagName === 'VIDEO') {
         mediaEl.currentTime = 0;
-        mediaEl.muted = !hasInteracted; // Mute jika belum klik, unmute jika sudah
+        mediaEl.muted = !hasInteracted;
         
         mediaEl.onloadedmetadata = () => {
           videoDurationKnown = Number.isFinite(mediaEl.duration) && mediaEl.duration > 0;
@@ -321,8 +307,14 @@ function showSlide(index) {
         
         if (mediaEl.readyState >= 1) mediaEl.onloadedmetadata();
         
+        // --- JIKA SLIDE INI AKTIF DAN LAGI PLAYING, BARU PUTAR VIDIONYA ---
         if (isPlaying) {
           mediaEl.play().catch(() => {});
+        }
+      } else if (mediaEl.tagName === 'IFRAME') {
+        // Kirim perintah play ke YouTube API jika sedang playing
+        if (isPlaying) {
+          mediaEl.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
         }
       }
     }
@@ -344,7 +336,6 @@ function tick(now) {
 
     if (media.type === 'video' && currentVideo) {
       if (media.duration == null || media.duration === '') {
-        // Jika video HTML5 biasa
         if (currentVideo.tagName === 'VIDEO') {
           if (currentVideo.ended) nextSlide();
           const d = currentVideo.duration;
@@ -353,9 +344,7 @@ function tick(now) {
           } else {
             progressBar.style.width = '0%';
           }
-        } 
-        // Jika YouTube, kita tidak bisa deteksi durasi akurat dari luar, jadi gunakan durasi default
-        else if (currentVideo.tagName === 'IFRAME') {
+        } else if (currentVideo.tagName === 'IFRAME') {
            if (lastTick) elapsedMs += Math.max(0, now - lastTick);
            lastTick = now;
            const total = currentSlideDuration || getDurationMs(currentIndex);
@@ -363,7 +352,6 @@ function tick(now) {
            if (elapsedMs >= total) nextSlide();
         }
       } else {
-        // Gunakan batas waktu (Duration) manual
         const total = currentSlideDuration || getDurationMs(currentIndex);
         let elapsed = 0;
         if (currentVideo.tagName === 'VIDEO') {
@@ -420,13 +408,19 @@ playBtn.addEventListener('click', () => {
     lastTick = performance.now();
     if (currentVideo) {
       if (currentVideo.tagName === 'VIDEO') {
-        currentVideo.muted = false; // Unmute karena user klik tombol
+        currentVideo.muted = false;
         currentVideo.play().catch(() => {});
+      } else if (currentVideo.tagName === 'IFRAME') {
+        currentVideo.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
       }
     }
   } else {
     lastTick = 0;
-    if (currentVideo && currentVideo.tagName === 'VIDEO') currentVideo.pause();
+    if (currentVideo && currentVideo.tagName === 'VIDEO') {
+      currentVideo.pause();
+    } else if (currentVideo && currentVideo.tagName === 'IFRAME') {
+      currentVideo.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+    }
   }
 });
 
@@ -452,7 +446,6 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ' ') { e.preventDefault(); playBtn.click(); }
 });
 
-// EVENT PENTING: Mendeteksi klik pertama user di mana saja untuk membuka kunci suara
 document.addEventListener('click', () => {
   hasInteracted = true;
   if (currentVideo && currentVideo.tagName === 'VIDEO' && isPlaying) {
