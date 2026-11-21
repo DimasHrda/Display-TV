@@ -2,8 +2,12 @@
    CONFIG
    ============================================ */
 const DEFAULT_MEDIA = [
-  { type: "website", url: "https://www.wikipedia.org", name: "Wikipedia", duration: 15 },
-  { type: "image",   url: "https://picsum.photos/1920/1080?random=1", name: "Foto 1", duration: 5 },
+  { type: "website", url: "https://dimashrda.github.io/JadwalDokterRSUSYLVANI", name: "Jadwal Dokter", duration: 20 },
+  { type: "website", url: "https://simrs.rsusylvani.net/tv/bed-info", name: "Info BAD", duration: 10 },
+  { type: "website", url: "https://simrs.rsusylvani.net/tv/operation-schedule", name: "Jadwal Operasi", duration: 10 },
+  { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=admisi", name: "Antian Admisi", duration: 10 },
+  { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=poli", name: "Antian Poli", duration: 10 },
+  { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=farmasi", name: "Antian Farmasi", duration: 10 },
   { type: "video",   url: "https://www.w3schools.com/html/mov_bbb.mp4", name: "Video BBB" },
   { type: "image",   url: "https://picsum.photos/1920/1080?random=2", name: "Foto 2", duration: 3 },
   { type: "website", url: "https://example.com", name: "Example", duration: 8 }
