@@ -5,7 +5,7 @@
 // 👇👇 KUNCI UTAMANYA DI SINI 👇👇
 // Setiap kali kamu mengubah isi DEFAULT_MEDIA di bawah, 
 // TINGKATKAN ANGKA VERSI INI (misal dari 1 jadi 2, 3, dst)
-const DATA_VERSION = "2"; 
+const DATA_VERSION = "3"; 
 
 const DEFAULT_MEDIA = [
   { type: "website", url: "https://dimashrda.github.io/JadwalDokterRSUSYLVANI", name: "Jadwal Dokter", duration: 20 },
@@ -14,7 +14,7 @@ const DEFAULT_MEDIA = [
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=admisi", name: "Antian Admisi", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=poli", name: "Antian Poli", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=farmasi", name: "Antian Farmasi", duration: 10 },
-  { type: "video",   url: "Stop!_Mau_urus_data_Jangan_buru_buru_ke_kantor_BPJS_Kesehatan_dulu✋🏻🙂.mp4", name: "Video BPJS 1" }
+  { type: "video",   url: "Stop!_Mau_urus_data_Jangan_buru_buru_ke_kantor_BPJS_Kesehatan_dulu✋🏻🙂.mp4", name: "Video BPJS 2" }
 ];
 
 const STORAGE_KEY = 'slideshow_media_v2';
