@@ -8,19 +8,38 @@ const DEFAULT_MEDIA = [
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=admisi", name: "Antian Admisi", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=poli", name: "Antian Poli", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=farmasi", name: "Antian Farmasi", duration: 10 },
-  { type: "video",   url: "https://www.w3schools.com/html/mov_bbb.mp4", name: "Video BBB" },
-  { type: "image",   url: "https://picsum.photos/1920/1080?random=2", name: "Foto 2", duration: 3 },
-  { type: "website", url: "https://example.com", name: "Example", duration: 8 }
 ];
 
 const STORAGE_KEY = 'slideshow_media_v2';
+const CONFIG_VERSION_KEY = 'slideshow_config_version'; // Untuk deteksi update codingan
 const DB_NAME = 'slideshow_files_db';
 const DB_STORE = 'mediaFiles';
 
 /* ============================================
    STATE
    ============================================ */
-let mediaList = loadFromStorage() || structuredClone(DEFAULT_MEDIA);
+// Fungsi untuk mendapatkan "sidik jari" dari DEFAULT_MEDIA
+function getConfigHash() {
+  return JSON.stringify(DEFAULT_MEDIA);
+}
+
+// Cek apakah kodingan baru di-update, jika iya ambil dari DEFAULT_MEDIA
+const currentConfigHash = getConfigHash();
+const savedConfigHash = localStorage.getItem(CONFIG_VERSION_KEY);
+
+let mediaList;
+
+// JIKA: Belum ada data sama sekali ATAU kodingan baru diubah
+if (!localStorage.getItem(STORAGE_KEY) || currentConfigHash !== savedConfigHash) {
+  // Gunakan data terbaru dari codingan
+  mediaList = structuredClone(DEFAULT_MEDIA);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(mediaList));
+  localStorage.setItem(CONFIG_VERSION_KEY, currentConfigHash);
+} else {
+  // Gunakan data yang sudah disimpan di browser (termasuk hasil upload user)
+  mediaList = JSON.parse(localStorage.getItem(STORAGE_KEY));
+}
+
 let defaultDuration = 10;
 let currentIndex = 0;
 let isPlaying = false;
@@ -46,22 +65,21 @@ const adminBody = $('adminBody');
 const overlay = $('overlay');
 
 /* ============================================
-   STORAGE
+   STORAGE & SAVE
    ============================================ */
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-
 function saveToStorage() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mediaList));
+    // Simpan hash terbaru agar jika di-refresh tidak menimpa data upload user
+    localStorage.setItem(CONFIG_VERSION_KEY, currentConfigHash);
   } catch (e) {
     console.warn('Gagal simpan:', e);
   }
 }
+
+// ============================================
+//   SISA KODE DI BAWAH INI SAMA PERSIS SEPERTI SEBELUMNYA
+// ============================================
 
 /* ============================================
    INDEXEDDB
@@ -139,7 +157,6 @@ function getDurationMs(index) {
 function pauseCurrentVideo() {
   if (currentVideo) {
     if (currentVideo.tagName === 'IFRAME') {
-      // YouTube iframe handling (pause)
       currentVideo.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
     } else {
       currentVideo.pause();
@@ -195,7 +212,6 @@ function renderStage() {
         const ytId = getYoutubeId(src);
         if (ytId) {
           const iframe = document.createElement('iframe');
-          // Hilangkan autoplay=1 di sini, agar tidak mutar otomatis saat dirender
           iframe.src = `https://www.youtube.com/embed/${ytId}?mute=0&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
           iframe.allow = "autoplay; encrypted-media";
           iframe.setAttribute('allowfullscreen', 'true');
@@ -207,13 +223,11 @@ function renderStage() {
         slide.appendChild(makeLoader('Memuat video...'));
         const video = document.createElement('video');
         video.src = src;
-        
-        // --- INI BAGIAN YANG DIPERBAIKI ---
-        video.autoplay = false; // JANGAN autoplay saat dirender
+        video.autoplay = false;
         video.muted = false;
         video.playsInline = true;
         video.loop = false;
-        video.preload = 'metadata'; // Hanya ambil info durasi, bukan langsung download
+        video.preload = 'metadata';
         
         video.addEventListener('loadeddata', () => clearLoader(slide));
         video.addEventListener('error', () => showError(slide, 'Video tidak dapat dimuat'));
@@ -268,7 +282,7 @@ function showError(slide, msg) {
 }
 
 /* ============================================
-   NAVIGATION (Hanya putar video jika slide aktif)
+   NAVIGATION
    ============================================ */
 function showSlide(index) {
   if (!mediaList.length) return;
@@ -311,12 +325,10 @@ function showSlide(index) {
         
         if (mediaEl.readyState >= 1) mediaEl.onloadedmetadata();
         
-        // --- JIKA SLIDE INI AKTIF DAN LAGI PLAYING, BARU PUTAR VIDIONYA ---
         if (isPlaying) {
           mediaEl.play().catch(() => {});
         }
       } else if (mediaEl.tagName === 'IFRAME') {
-        // Kirim perintah play ke YouTube API jika sedang playing
         if (isPlaying) {
           mediaEl.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
         }
@@ -703,6 +715,8 @@ $('addBtn').addEventListener('click', () => {
 $('resetBtn').addEventListener('click', () => {
   if (confirm('Reset ke data default? Semua perubahan akan hilang.')) {
     mediaList = structuredClone(DEFAULT_MEDIA);
+    // PERBARUI VERSI AGAR TIDAK BALIK KE CACHE LAMA
+    localStorage.setItem(CONFIG_VERSION_KEY, currentConfigHash); 
     saveToStorage();
     renderAdmin();
     renderStage();
