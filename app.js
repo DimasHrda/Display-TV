@@ -1,12 +1,6 @@
 /* ============================================
    CONFIG
    ============================================ */
-
-// 👇👇 KUNCI UTAMANYA DI SINI 👇👇
-// Setiap kali kamu mengubah isi DEFAULT_MEDIA di bawah, 
-// TINGKATKAN ANGKA VERSI INI (misal dari 1 jadi 2, 3, dst)
-const DATA_VERSION = "3"; 
-
 const DEFAULT_MEDIA = [
   { type: "website", url: "https://dimashrda.github.io/JadwalDokterRSUSYLVANI", name: "Jadwal Dokter", duration: 20 },
   { type: "website", url: "https://simrs.rsusylvani.net/tv/bed-info", name: "Info BAD", duration: 10 },
@@ -14,33 +8,16 @@ const DEFAULT_MEDIA = [
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=admisi", name: "Antian Admisi", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=poli", name: "Antian Poli", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=farmasi", name: "Antian Farmasi", duration: 10 },
-  { type: "video",   url: "Stop!_Mau_urus_data_Jangan_buru_buru_ke_kantor_BPJS_Kesehatan_dulu✋🏻🙂.mp4", name: "Video BPJS 2" }
 ];
 
 const STORAGE_KEY = 'slideshow_media_v2';
-const VERSION_KEY = 'slideshow_data_version'; // Key baru untuk menyimpan versi
 const DB_NAME = 'slideshow_files_db';
 const DB_STORE = 'mediaFiles';
 
 /* ============================================
-   STATE & AUTO-UPDATE LOGIC
+   STATE
    ============================================ */
-let mediaList;
-
-// Cek versi yang tersimpan di browser
-const savedVersion = localStorage.getItem(VERSION_KEY);
-
-if (savedVersion !== DATA_VERSION) {
-  // Jika versi di browser beda dengan versi di kodingan (artinya kodingan baru diupdate)
-  // Maka TIMPA data lama dengan data terbaru dari kodingan
-  mediaList = structuredClone(DEFAULT_MEDIA);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(mediaList));
-  localStorage.setItem(VERSION_KEY, DATA_VERSION); // Simpan versi barunya
-} else {
-  // Jika versi sama, gunakan data yang tersimpan di browser (termasuk hasil upload manual user)
-  mediaList = loadFromStorage() || structuredClone(DEFAULT_MEDIA);
-}
-
+let mediaList = loadFromStorage() || structuredClone(DEFAULT_MEDIA);
 let defaultDuration = 10;
 let currentIndex = 0;
 let isPlaying = false;
@@ -78,8 +55,6 @@ function loadFromStorage() {
 function saveToStorage() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mediaList));
-    // Simpan versi agar jika user upload manual, datanya tidak ke-reset saat refresh
-    localStorage.setItem(VERSION_KEY, DATA_VERSION); 
   } catch (e) {
     console.warn('Gagal simpan:', e);
   }
@@ -161,6 +136,7 @@ function getDurationMs(index) {
 function pauseCurrentVideo() {
   if (currentVideo) {
     if (currentVideo.tagName === 'IFRAME') {
+      // YouTube iframe handling (pause)
       currentVideo.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
     } else {
       currentVideo.pause();
@@ -216,6 +192,7 @@ function renderStage() {
         const ytId = getYoutubeId(src);
         if (ytId) {
           const iframe = document.createElement('iframe');
+          // Hilangkan autoplay=1 di sini, agar tidak mutar otomatis saat dirender
           iframe.src = `https://www.youtube.com/embed/${ytId}?mute=0&controls=1&rel=0&modestbranding=1&enablejsapi=1`;
           iframe.allow = "autoplay; encrypted-media";
           iframe.setAttribute('allowfullscreen', 'true');
@@ -227,11 +204,13 @@ function renderStage() {
         slide.appendChild(makeLoader('Memuat video...'));
         const video = document.createElement('video');
         video.src = src;
-        video.autoplay = false;
+        
+        // --- INI BAGIAN YANG DIPERBAIKI ---
+        video.autoplay = false; // JANGAN autoplay saat dirender
         video.muted = false;
         video.playsInline = true;
         video.loop = false;
-        video.preload = 'metadata';
+        video.preload = 'metadata'; // Hanya ambil info durasi, bukan langsung download
         
         video.addEventListener('loadeddata', () => clearLoader(slide));
         video.addEventListener('error', () => showError(slide, 'Video tidak dapat dimuat'));
@@ -286,7 +265,7 @@ function showError(slide, msg) {
 }
 
 /* ============================================
-   NAVIGATION
+   NAVIGATION (Hanya putar video jika slide aktif)
    ============================================ */
 function showSlide(index) {
   if (!mediaList.length) return;
@@ -329,10 +308,12 @@ function showSlide(index) {
         
         if (mediaEl.readyState >= 1) mediaEl.onloadedmetadata();
         
+        // --- JIKA SLIDE INI AKTIF DAN LAGI PLAYING, BARU PUTAR VIDIONYA ---
         if (isPlaying) {
           mediaEl.play().catch(() => {});
         }
       } else if (mediaEl.tagName === 'IFRAME') {
+        // Kirim perintah play ke YouTube API jika sedang playing
         if (isPlaying) {
           mediaEl.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
         }
@@ -719,8 +700,6 @@ $('addBtn').addEventListener('click', () => {
 $('resetBtn').addEventListener('click', () => {
   if (confirm('Reset ke data default? Semua perubahan akan hilang.')) {
     mediaList = structuredClone(DEFAULT_MEDIA);
-    // PERBARUI VERSI AGAR TIDAK BALIK KE CACHE LAMA
-    localStorage.setItem(VERSION_KEY, DATA_VERSION); 
     saveToStorage();
     renderAdmin();
     renderStage();
