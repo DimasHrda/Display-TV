@@ -1,6 +1,12 @@
 /* ============================================
    CONFIG
    ============================================ */
+
+// 👇👇 KUNCI UTAMANYA DI SINI 👇👇
+// Setiap kali kamu mengubah isi DEFAULT_MEDIA di bawah, 
+// TINGKATKAN ANGKA VERSI INI (misal dari 1 jadi 2, 3, dst)
+const DATA_VERSION = "2"; 
+
 const DEFAULT_MEDIA = [
   { type: "website", url: "https://dimashrda.github.io/JadwalDokterRSUSYLVANI", name: "Jadwal Dokter", duration: 20 },
   { type: "website", url: "https://simrs.rsusylvani.net/tv/bed-info", name: "Info BAD", duration: 10 },
@@ -8,37 +14,31 @@ const DEFAULT_MEDIA = [
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=admisi", name: "Antian Admisi", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=poli", name: "Antian Poli", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=farmasi", name: "Antian Farmasi", duration: 10 },
-  { type: "video",   url: "Stop!_Mau_urus_data_Jangan_buru_buru_ke_kantor_BPJS_Kesehatan_dulu✋🏻🙂.mp4", name: "Video BBB" }
+  { type: "video",   url: "Stop!_Mau_urus_data_Jangan_buru_buru_ke_kantor_BPJS_Kesehatan_dulu✋🏻🙂.mp4", name: "Video BPJS 1" }
 ];
 
 const STORAGE_KEY = 'slideshow_media_v2';
-const CONFIG_VERSION_KEY = 'slideshow_config_version'; // Untuk deteksi update codingan
+const VERSION_KEY = 'slideshow_data_version'; // Key baru untuk menyimpan versi
 const DB_NAME = 'slideshow_files_db';
 const DB_STORE = 'mediaFiles';
 
 /* ============================================
-   STATE
+   STATE & AUTO-UPDATE LOGIC
    ============================================ */
-// Fungsi untuk mendapatkan "sidik jari" dari DEFAULT_MEDIA
-function getConfigHash() {
-  return JSON.stringify(DEFAULT_MEDIA);
-}
-
-// Cek apakah kodingan baru di-update, jika iya ambil dari DEFAULT_MEDIA
-const currentConfigHash = getConfigHash();
-const savedConfigHash = localStorage.getItem(CONFIG_VERSION_KEY);
-
 let mediaList;
 
-// JIKA: Belum ada data sama sekali ATAU kodingan baru diubah
-if (!localStorage.getItem(STORAGE_KEY) || currentConfigHash !== savedConfigHash) {
-  // Gunakan data terbaru dari codingan
+// Cek versi yang tersimpan di browser
+const savedVersion = localStorage.getItem(VERSION_KEY);
+
+if (savedVersion !== DATA_VERSION) {
+  // Jika versi di browser beda dengan versi di kodingan (artinya kodingan baru diupdate)
+  // Maka TIMPA data lama dengan data terbaru dari kodingan
   mediaList = structuredClone(DEFAULT_MEDIA);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(mediaList));
-  localStorage.setItem(CONFIG_VERSION_KEY, currentConfigHash);
+  localStorage.setItem(VERSION_KEY, DATA_VERSION); // Simpan versi barunya
 } else {
-  // Gunakan data yang sudah disimpan di browser (termasuk hasil upload user)
-  mediaList = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  // Jika versi sama, gunakan data yang tersimpan di browser (termasuk hasil upload manual user)
+  mediaList = loadFromStorage() || structuredClone(DEFAULT_MEDIA);
 }
 
 let defaultDuration = 10;
@@ -66,21 +66,24 @@ const adminBody = $('adminBody');
 const overlay = $('overlay');
 
 /* ============================================
-   STORAGE & SAVE
+   STORAGE
    ============================================ */
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 function saveToStorage() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(mediaList));
-    // Simpan hash terbaru agar jika di-refresh tidak menimpa data upload user
-    localStorage.setItem(CONFIG_VERSION_KEY, currentConfigHash);
+    // Simpan versi agar jika user upload manual, datanya tidak ke-reset saat refresh
+    localStorage.setItem(VERSION_KEY, DATA_VERSION); 
   } catch (e) {
     console.warn('Gagal simpan:', e);
   }
 }
-
-// ============================================
-//   SISA KODE DI BAWAH INI SAMA PERSIS SEPERTI SEBELUMNYA
-// ============================================
 
 /* ============================================
    INDEXEDDB
@@ -717,7 +720,7 @@ $('resetBtn').addEventListener('click', () => {
   if (confirm('Reset ke data default? Semua perubahan akan hilang.')) {
     mediaList = structuredClone(DEFAULT_MEDIA);
     // PERBARUI VERSI AGAR TIDAK BALIK KE CACHE LAMA
-    localStorage.setItem(CONFIG_VERSION_KEY, currentConfigHash); 
+    localStorage.setItem(VERSION_KEY, DATA_VERSION); 
     saveToStorage();
     renderAdmin();
     renderStage();
