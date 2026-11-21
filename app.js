@@ -7,7 +7,6 @@ const DEFAULT_MEDIA = [
   { type: "website", url: "https://simrs.rsusylvani.net/tv/operation-schedule", name: "Jadwal Operasi", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=admisi", name: "Antian Admisi", duration: 10 },
   { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=poli", name: "Antian Poli", duration: 10 },
-  { type: "website", url: "https://simrs.rsusylvani.net/antrol/display-antrol?mode=farmasi", name: "Antian Farmasi", duration: 10 },
 ];
 
 const STORAGE_KEY = 'slideshow_media_v2';
